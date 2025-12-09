@@ -77,7 +77,8 @@ int main() {
     // Initialize stack
     LF_stack *stack = malloc(sizeof(LF_stack));
     if (!stack) return 1;
-    atomic_store(&stack->top, NULL);
+	t_stack_top init = { .node = NULL, .version = 0 };
+    atomic_store(&stack->top, init);
     
     pthread_t threads[NUM_THREADS];
     thread_args args[NUM_THREADS];
@@ -121,7 +122,8 @@ int main() {
     
     // Count remaining nodes
     int remaining = 0;
-    t_stack_node *current = atomic_load(&stack->top);
+    t_stack_top top = atomic_load(&stack->top);
+	t_stack_node *current = top.node;
     while (current) {
         remaining++;
         current = current->next;

@@ -16,26 +16,28 @@ pop():
 // start API
 #include "atomic_stack.h"
 
+// 
 void push(LF_stack* stack, t_stack_node *new_node)
 {
-	t_stack_node *top;
+	t_stack_top current, next;
 	do {
-	top = atomic_load(&stack->top);
-	new_node->next = top;
-	} while (!atomic_compare_exchange_strong(&stack->top, &top, new_node));
+	current = atomic_load(&stack->top);
+	new_node->next = current.node;
+	next.node = new_node;
+	next.version = current.version + 1;
+	} while (!atomic_compare_exchange_strong(&stack->top, &current, next));
 }
 
-// may spin multiple times
 t_stack_node *pop(LF_stack *stack)
 {
-	while (1)
-	{
-		t_stack_node *old_head = atomic_load(&stack->top);
-		if (old_head == NULL) return NULL;
-		t_stack_node *new_head = old_head->next;
-		if (atomic_compare_exchange_strong(&stack->top, &old_head, new_head))
-			return old_head;
-	}
+	t_stack_top current, next;
+	do {
+		current = atomic_load(&stack->top);
+		if (current.node == NULL) return NULL;
+		next.node = current.node->next;
+		next.version = current.version + 1;
+	} while (!atomic_compare_exchange_strong(&stack->top, &current, next));
+	return current.node;
 }
 
 t_stack_node *new_node(void *data)
