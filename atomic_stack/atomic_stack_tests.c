@@ -1,9 +1,10 @@
+// DISCLAIMER: tests are Ai-generated cause it's boring
+
 #include "atomic_stack.h"
 #include <stdio.h>
 #include <pthread.h>
 #include <stdint.h>
 #include <string.h>
-// #include <time.h>
 
 #define NUM_THREADS 8
 #define OPERATIONS_PER_THREAD 10000

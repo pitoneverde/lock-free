@@ -77,3 +77,4 @@ t_stack_node *new_node(void *data)
 // }
 
 // comprehensive test: atomic_stack_test.c
+// stress test: atomic_stack_stress.c
