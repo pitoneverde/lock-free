@@ -1,4 +1,4 @@
-// DISCLAIMER: tests are Ai-generated cause it's boring
+// DISCLAIMER: tests are mostly Ai-generated cause it's boring
 
 #include "atomic_stack.h"
 #include <stdio.h>
