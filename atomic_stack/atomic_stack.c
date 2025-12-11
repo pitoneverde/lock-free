@@ -49,6 +49,11 @@ t_stack_node *new_node(void *data)
 }
 // end API
 
+// comprehensive test: atomic_stack_test.c
+// stress test: atomic_stack_stress.c
+// basic test: uncomment below, then:
+// cc -std=c11 ./atomic_stack.c -O2 -mcx16 -latomic -o atomic_stack
+
 // t_stack_node *create_new_node(void *data)
 // {
 // 	t_stack_node *node = new_node(data);
@@ -61,8 +66,6 @@ t_stack_node *new_node(void *data)
 // 	push(stack, node);
 // }
 
-// basic test
-// cc -std=c11 ./atomic_stack.c -O2 -mcx16 -latomic -o atomic_stack
 // int main()
 // {
 // 	int a = 1, b = 2, c = 3;
@@ -75,6 +78,3 @@ t_stack_node *new_node(void *data)
 	
 // 	return 0;
 // }
-
-// comprehensive test: atomic_stack_test.c
-// stress test: atomic_stack_stress.c
