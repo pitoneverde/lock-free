@@ -42,16 +42,16 @@ bool enqueue(t_ms_queue *q, void *data)
 			if (next)	// help advance tail
 			{
 				atomic_compare_exchange_weak_explicit(
-					&q->tail, &tail, next, memory_order_acq_rel, memory_order_acq_rel
+					&q->tail, &tail, next, memory_order_acq_rel, memory_order_relaxed
 				);
 				continue;
 			}
 			if (atomic_compare_exchange_weak_explicit(
-				&tail->next, &next, new_node, memory_order_release, memory_order_release
+				&tail->next, &next, new_node, memory_order_release, memory_order_relaxed
 			))
 			{
 				atomic_compare_exchange_strong_explicit(
-					&q->tail, &tail, &new_node, memory_order_acq_rel, memory_order_acq_rel
+					&q->tail, &tail, &new_node, memory_order_acq_rel, memory_order_relaxed
 				);
 				return true;
 			}
@@ -72,13 +72,13 @@ void *dequeue(t_ms_queue *q)
 			{
 				if (!next)	return NULL; // empty
 				atomic_compare_exchange_weak_explicit(
-					&q->tail, &tail, next, memory_order_acq_rel, memory_order_acq_rel
+					&q->tail, &tail, next, memory_order_acq_rel, memory_order_relaxed
 				);
 				continue;
 			}
 			void *value = next->data;
 			if (atomic_compare_exchange_weak_explicit(
-				&q->head, &head, next, memory_order_acq_rel, memory_order_acq_rel
+				&q->head, &head, next, memory_order_acq_rel, memory_order_relaxed
 			))
 			{
 				// UB if someone is accessing the node, .data leaks if the user does not free it
