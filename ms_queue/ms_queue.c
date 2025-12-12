@@ -32,7 +32,7 @@ bool enqueue(t_ms_queue *q, void *data)
 	t_node	*new_node = malloc(sizeof(t_node));
 	if (!new_node) return false;
 	new_node->data = data;
-	new_node->next = NULL;
+	atomic_init(&new_node->next, NULL);
 	while (1)
 	{
 		t_node *tail = atomic_load_explicit(&q->tail, memory_order_acquire);
@@ -42,16 +42,22 @@ bool enqueue(t_ms_queue *q, void *data)
 			if (next)	// help advance tail
 			{
 				atomic_compare_exchange_weak_explicit(
-					&q->tail, &tail, next, memory_order_acq_rel, memory_order_relaxed
+					&q->tail, &tail, next,
+					memory_order_acq_rel,	// success
+					memory_order_relaxed	// don't care
 				);
 				continue;
 			}
 			if (atomic_compare_exchange_weak_explicit(
-				&tail->next, &next, new_node, memory_order_release, memory_order_relaxed
+				&tail->next, &next, new_node,
+				memory_order_release,		// success
+				memory_order_relaxed		// don't care
 			))
 			{
 				atomic_compare_exchange_strong_explicit(
-					&q->tail, &tail, &new_node, memory_order_acq_rel, memory_order_relaxed
+					&q->tail, &tail, new_node,
+					memory_order_acq_rel,	// success
+					memory_order_relaxed	// don't care
 				);
 				return true;
 			}
@@ -72,13 +78,17 @@ void *dequeue(t_ms_queue *q)
 			{
 				if (!next)	return NULL; // empty
 				atomic_compare_exchange_weak_explicit(
-					&q->tail, &tail, next, memory_order_acq_rel, memory_order_relaxed
+					&q->tail, &tail, next,
+					memory_order_acq_rel,	// success
+					memory_order_relaxed	// don't care
 				);
 				continue;
 			}
 			void *value = next->data;
 			if (atomic_compare_exchange_weak_explicit(
-				&q->head, &head, next, memory_order_acq_rel, memory_order_relaxed
+				&q->head, &head, next,
+				memory_order_acq_rel,		// success
+				memory_order_relaxed		// don't care
 			))
 			{
 				// UB if someone is accessing the node, .data leaks if the user does not free it
