@@ -19,8 +19,8 @@ struct spsc_ring
 	char _tail_padding[64 - sizeof(atomic_size_t)];
 
 	unsigned char	*buf;
-	size_t	size;
-	size_t	mask;
+	size_t	size;		// physical
+	size_t	mask;		// logical size + mask for fast modulo
 };
 
 // Minimal API
