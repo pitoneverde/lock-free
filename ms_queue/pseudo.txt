@@ -1,0 +1,84 @@
+Node:
+  value: data_t
+  next: atomic<Node*>
+
+Queue:
+  head: atomic<Node*>   // always points to dummy node
+  tail: atomic<Node*>   // points to last or second-to-last node
+  
+  // Initialization: head = tail = new Node(dummy)
+  
+function enqueue(queue, value):
+  // 1. Create new node
+  node = allocate_node()
+  node.value = value
+  node.next = null
+  
+  // 2. Local copies for CAS attempts
+  while true:
+    tail = atomic_load(&queue.tail, memory_order_acquire)
+    next = atomic_load(&tail.next, memory_order_acquire)
+    
+    // 3. Check if tail is still consistent
+    if tail == atomic_load(&queue.tail, memory_order_acquire):
+      // 4. If tail is not pointing to last node, help advance it
+      if next ≠ null:
+        atomic_compare_exchange_weak(
+          &queue.tail,
+          &tail,
+          next,
+          memory_order_acq_rel
+        )
+        continue
+      
+      // 5. Try to link new node at end of list
+      if atomic_compare_exchange_weak(
+        &tail.next,
+        &next,
+        node,
+        memory_order_release
+      ):
+        // 6. Try to swing tail to new node (can fail - others may help)
+        atomic_compare_exchange_strong(
+          &queue.tail,
+          &tail,
+          node,
+          memory_order_acq_rel
+        )
+        return true  // Success
+        
+function dequeue(queue):
+  while true:
+    head = atomic_load(&queue.head, memory_order_acquire)
+    tail = atomic_load(&queue.tail, memory_order_acquire)
+    next = atomic_load(&head.next, memory_order_acquire)
+    
+    // 1. Check consistency
+    if head == atomic_load(&queue.head, memory_order_acquire):
+      // 2. Queue empty or in intermediate state?
+      if head == tail:
+        if next == null:
+          return EMPTY  // Queue is truly empty
+        
+        // 3. Tail is falling behind - help advance it
+        atomic_compare_exchange_weak(
+          &queue.tail,
+          &tail,
+          next,
+          memory_order_acq_rel
+        )
+        continue
+      
+      // 4. Read value before CAS (next cannot be null here)
+      value = next.value
+      
+      // 5. Try to swing head forward
+      if atomic_compare_exchange_weak(
+        &queue.head,
+        &head,
+        next,
+        memory_order_acq_rel
+      ):
+        // 6. Success - can now safely reclaim old head (dummy)
+        free_node(head)
+        return value
