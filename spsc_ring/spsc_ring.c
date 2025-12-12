@@ -2,6 +2,41 @@
 #include <string.h>
 #include <math.h>
 
+/* REFERENCE PSEUDOCODE ALGO:
+function try_push(value):
+	current_tail = tail                // Local read
+	current_head = HEAD_ACQUIRE(head)  // Acquire barrier!
+
+	// Check space (guard cell used to distinguish full from empty)
+	if (current_tail - current_head) >= capacity:
+		return BUFFER_FULL
+
+	// Write data
+	buffer[current_tail & mask] = value
+
+	// Advance tail with release semantics
+	tail = current_tail + 1
+	TAIL_RELEASE(tail)  // Release barrier!
+	return SUCCESS
+
+
+function try_pop():
+	current_head = head                // Local read
+	current_tail = TAIL_ACQUIRE(tail)  // Acquire barrier!
+
+	// Check if data available
+	if current_head == current_tail:
+		return BUFFER_EMPTY
+
+	// Read data
+	value = buffer[current_head & mask]
+
+	// Advance head with release semantics
+	head = current_head + 1
+	HEAD_RELEASE(head)  // Release barrier!
+	return value
+*/
+
 // stolen from linux kfifo, roundups to multiples of 64
 static inline size_t to_cache_size(size_t n)
 {
