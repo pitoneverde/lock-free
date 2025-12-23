@@ -1,4 +1,5 @@
 #include "rcu_ht.h"
+#include <stdlib.h>
 
 static size_t knuth_hash(int key, size_t table_size)
 {
@@ -13,14 +14,30 @@ hashtable_t	*ht_create(size_t size)
 	if (!ht->buckets) return (free(ht), NULL);
 	ht->size = size;
 	ht->hash_f = &knuth_hash;
+	return ht;
 }
 
-// inserts new_entry at the head of the bucket
+// inserts new_entry at the head of the bucket, updates if key exists
 void	ht_insert(hashtable_t *ht, int key, void *value)
 {
 	size_t i = ht->hash_f(key, ht->size);
+
+	// update
+	ht_entry_t *curr = ht->buckets[i];
+	while (curr)
+	{
+		if (curr->key == key)
+		{
+			free(curr->value);
+			curr->value = value;
+			return;
+		}
+		curr = curr->next;
+	}
+	
+	// insert
 	ht_entry_t *new_entry = malloc(sizeof(ht_entry_t));
-	if (!new_entry) return NULL;
+	if (!new_entry) return free(value);
 	new_entry->key = key;
 	new_entry->value = value;
 	new_entry->next = ht->buckets[i];
@@ -43,15 +60,60 @@ void	*ht_lookup(hashtable_t *ht, int key)
 void	ht_delete(hashtable_t *ht, int key)
 {
 	size_t i = ht->hash_f(key, ht->size);
-	ht_entry_t *entry = ht->buckets[i];
-	while (entry)
+	ht_entry_t *curr = ht->buckets[i];
+	ht_entry_t *prev = NULL;
+	while (curr)
 	{
-		if (entry->key == key)
+		if (curr->key == key)
 		{
-			ht->buckets[i] = entry->next;
-			entry->next = NULL;
-			free(entry);
+			if (prev == NULL)
+				ht->buckets[i] = curr->next;
+			else
+				prev->next = curr->next;
+			free(curr->value);
+			free(curr);
+			return;
 		}
-		entry = entry->next;
+		prev = curr;
+		curr = curr->next;
 	}
 }
+
+// standard for malloc'd values
+void	ht_destroy(hashtable_t *ht)
+{
+	if (!ht) return;
+	for (size_t i = 0; i < ht->size; i++)
+	{
+		ht_entry_t *entry = ht->buckets[i];
+		while (entry)
+		{
+			ht_entry_t *next = entry->next;
+			free(entry->value);
+			free(entry);
+			entry = next;
+		}
+	}
+	free(ht->buckets);
+	free(ht);
+}
+
+// // if stackalloc or special cases
+// void	ht_destroy_ex(hashtable_t *ht, void (*f)(void *))
+// {
+// 	if (!ht) return;
+// 	for (size_t i = 0; i < ht->size; i++)
+// 	{
+// 		ht_entry_t *entry = ht->buckets[i];
+// 		while (entry)
+// 		{
+// 			ht_entry_t *next = entry->next;
+// 			if (f)
+// 				f(entry->value);
+// 			free(entry);
+// 			entry = next;
+// 		}
+// 	}
+// 	free(ht->buckets);
+// 	free(ht);
+// }
