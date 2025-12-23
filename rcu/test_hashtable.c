@@ -22,7 +22,7 @@ int test_create_destroy() {
     
     hashtable_t *ht = ht_create(100);
     TEST_ASSERT(ht != NULL, "ht_create returns non-NULL");
-    TEST_ASSERT(ht->size == 100, "Size is correctly set");
+    TEST_ASSERT(ht->size == 128, "Size is correctly set");
     
     ht_destroy(ht);
     TEST_ASSERT(1, "ht_destroy completes without crash");
@@ -561,6 +561,101 @@ int test_memory_boundaries() {
     return 1;
 }
 
+// Measure memory bandwidth
+int benchmark_memory_bandwidth() {
+    const size_t SIZE = 1000000;
+    int *data = malloc(SIZE * sizeof(int));
+    
+    // Write bandwidth
+    clock_t start = clock();
+    for (size_t i = 0; i < SIZE; i++) {
+        data[i] = i;
+    }
+    double write_time = (double)(clock() - start) / CLOCKS_PER_SEC;
+    
+    // Read bandwidth  
+    start = clock();
+    volatile int sum = 0;
+    for (size_t i = 0; i < SIZE; i++) {
+        sum += data[i];
+    }
+    double read_time = (double)(clock() - start) / CLOCKS_PER_SEC;
+    
+    double write_bw = (SIZE * sizeof(int)) / (write_time * 1024*1024*1024);
+    double read_bw = (SIZE * sizeof(int)) / (read_time * 1024*1024*1024);
+    
+    printf("Write bandwidth: %.2f GB/s\n", write_bw);
+    printf("Read bandwidth:  %.2f GB/s\n", read_bw);
+    printf("Your hash table uses: 200M × 24B = 4.8GB/s\n");
+    
+    free(data);
+	return 1;
+}
+
+int benchmark_cache_effects() {
+    printf("\n=== Cache Effect Benchmark ===\n");
+    
+    // Test different working set sizes
+    size_t sizes[] = {1024, 4096, 32768, 131072, 524288, 2097152, 8388608};
+    //                L1     L1      L2      L2       L3       L3       DRAM
+    
+    for (size_t s = 0; s < sizeof(sizes)/sizeof(sizes[0]); s++) {
+        size_t N = sizes[s];
+        int *data = malloc(N * sizeof(int));
+        
+        // Initialize
+        for (size_t i = 0; i < N; i++) {
+            data[i] = rand();
+        }
+        
+        // Time random accesses
+        clock_t start = clock();
+        volatile int sum = 0;
+        for (int i = 0; i < 1000000; i++) {
+            sum += data[rand() % N];
+        }
+        double time = (double)(clock() - start) / CLOCKS_PER_SEC;
+        
+        printf("Size %8zu (%4zuKB): %.2f Mops/sec\n", 
+               N, N*sizeof(int)/1024, 1.0/time);
+        
+        free(data);
+    }
+	return 1;
+}
+
+int benchmark_cache_aware_vs_oblivious() {
+    printf("\n=== Cache Aware vs Oblivious ===\n");
+    
+    // Same data, different access patterns
+    const size_t N = 1000000;
+    int *data = malloc(N * sizeof(int));
+    for (size_t i = 0; i < N; i++) data[i] = i;
+    
+    // 1. Cache-aware: Sequential access
+    clock_t start = clock();
+    volatile int sum1 = 0;
+    for (size_t i = 0; i < N; i++) {
+        sum1 += data[i];
+    }
+    double seq_time = (double)(clock() - start) / CLOCKS_PER_SEC;
+    
+    // 2. Cache-oblivious: Random access  
+    start = clock();
+    volatile int sum2 = 0;
+    for (int i = 0; i < 1000000; i++) {
+        sum2 += data[rand() % N];
+    }
+    double rand_time = (double)(clock() - start) / CLOCKS_PER_SEC;
+    
+    printf("Sequential: %.2f Mops/sec\n", N/seq_time/1000000);
+    printf("Random:     %.2f Mops/sec\n", 1000000/rand_time/1000000);
+    printf("Ratio: %.1fx faster\n", (N/seq_time)/(1000000/rand_time));
+    
+    free(data);
+	return 1;
+}
+
 // Main test runner
 int main() {
     int passed = 0;
@@ -579,6 +674,9 @@ int main() {
         test_edge_cases,
 		test_hash_function_edge_cases,
 		test_memory_boundaries,
+		benchmark_memory_bandwidth,
+		benchmark_cache_effects,
+		benchmark_cache_aware_vs_oblivious,
         NULL
     };
     

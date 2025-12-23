@@ -1,18 +1,23 @@
-#include "rcu_ht.h"
+#include "ht.h"
 #include <stdlib.h>
 
-static inline size_t knuth_hash(int key, size_t table_size)
+static inline size_t knuth_hash(int key, size_t mask)
 {
-	return (size_t)(key * 2654435761) % table_size;
+	return (size_t)(key * 2654435761) & mask;
 }
 
 hashtable_t	*ht_create(size_t size)
 {
 	hashtable_t	*ht = malloc(sizeof(hashtable_t));
 	if (!ht) return NULL;
-	ht->buckets = calloc(size, sizeof(ht_entry_t *));
+	
+	// use pow-of-2 size
+	size_t actual_size = 1;
+	while (actual_size < size) actual_size <<= 1;
+	ht->buckets = calloc(actual_size, sizeof(ht_entry_t *));
 	if (!ht->buckets) return (free(ht), NULL);
-	ht->size = size;
+	ht->size = actual_size;
+	ht->mask = size - 1;
 	ht->hash_f = &knuth_hash;
 	return ht;
 }
@@ -20,7 +25,7 @@ hashtable_t	*ht_create(size_t size)
 // inserts new_entry at the head of the bucket, updates if key exists
 void	ht_insert(hashtable_t *ht, int key, void *value)
 {
-	size_t i = ht->hash_f(key, ht->size);
+	size_t i = ht->hash_f(key, ht->mask);
 
 	// update
 	ht_entry_t *curr = ht->buckets[i];
@@ -47,7 +52,7 @@ void	ht_insert(hashtable_t *ht, int key, void *value)
 // traverses the bucket's list; null if not found
 inline void	*ht_lookup(hashtable_t *ht, int key)
 {
-	size_t i = ht->hash_f(key, ht->size);
+	size_t i = ht->hash_f(key, ht->mask);
 	ht_entry_t *entry = ht->buckets[i];
 
 	if (entry && entry->next)
@@ -63,7 +68,7 @@ inline void	*ht_lookup(hashtable_t *ht, int key)
 
 void	ht_delete(hashtable_t *ht, int key)
 {
-	size_t i = ht->hash_f(key, ht->size);
+	size_t i = ht->hash_f(key, ht->mask);
 	ht_entry_t *curr = ht->buckets[i];
 	ht_entry_t *prev = NULL;
 	while (curr)

@@ -16,6 +16,7 @@ typedef struct hashtable_s
 {
 	ht_entry_t	**buckets;
 	size_t	size;
+	size_t	mask;
 	hash_function hash_f;
 } hashtable_t;
 
