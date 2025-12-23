@@ -1,7 +1,7 @@
 #include "rcu_ht.h"
 #include <stdlib.h>
 
-static size_t knuth_hash(int key, size_t table_size)
+static inline size_t knuth_hash(int key, size_t table_size)
 {
 	return (size_t)(key * 2654435761) % table_size;
 }
@@ -45,10 +45,14 @@ void	ht_insert(hashtable_t *ht, int key, void *value)
 }
 
 // traverses the bucket's list; null if not found
-void	*ht_lookup(hashtable_t *ht, int key)
+inline void	*ht_lookup(hashtable_t *ht, int key)
 {
 	size_t i = ht->hash_f(key, ht->size);
 	ht_entry_t *entry = ht->buckets[i];
+
+	if (entry && entry->next)
+		__builtin_prefetch(entry->next, 0, 1);
+	
 	while (entry) {
 		if (entry->key == key)
 			return entry->value;

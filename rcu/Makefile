@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -g -O0 -Wall -Wextra
+CFLAGS = -O3 -march=native -Wall -Wextra
 SANITIZERS = -fsanitize=address -fsanitize=undefined
 
 all: test
