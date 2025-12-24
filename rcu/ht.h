@@ -1,6 +1,8 @@
 #ifndef RCU_HT_H
 # define RCU_HT_H
+# define _GNU_SOURCE
 # include <unistd.h>
+# include <pthread.h>
 
 // Linked-list
 typedef struct ht_entry_s
@@ -15,6 +17,7 @@ typedef size_t (*hash_function)(int key, size_t size);
 typedef struct hashtable_s
 {
 	ht_entry_t	**buckets;
+	pthread_rwlock_t *bucket_locks;
 	size_t	size;
 	size_t	mask;
 	hash_function hash_f;

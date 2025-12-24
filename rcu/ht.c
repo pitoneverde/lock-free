@@ -6,12 +6,11 @@ static inline size_t knuth_hash(int key, size_t mask)
 	return (size_t)(key * 2654435761) & mask;
 }
 
+// use pow-of-2 size to use bitwise AND in hash --> much better performance
 hashtable_t	*ht_create(size_t size)
 {
 	hashtable_t	*ht = malloc(sizeof(hashtable_t));
 	if (!ht) return NULL;
-	
-	// use pow-of-2 size
 	size_t actual_size = 1;
 	while (actual_size < size) actual_size <<= 1;
 	ht->buckets = calloc(actual_size, sizeof(ht_entry_t *));
@@ -106,23 +105,3 @@ void	ht_destroy(hashtable_t *ht)
 	free(ht->buckets);
 	free(ht);
 }
-
-// // if stackalloc or special cases
-// void	ht_destroy_ex(hashtable_t *ht, void (*f)(void *))
-// {
-// 	if (!ht) return;
-// 	for (size_t i = 0; i < ht->size; i++)
-// 	{
-// 		ht_entry_t *entry = ht->buckets[i];
-// 		while (entry)
-// 		{
-// 			ht_entry_t *next = entry->next;
-// 			if (f)
-// 				f(entry->value);
-// 			free(entry);
-// 			entry = next;
-// 		}
-// 	}
-// 	free(ht->buckets);
-// 	free(ht);
-// }

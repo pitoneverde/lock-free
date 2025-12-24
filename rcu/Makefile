@@ -4,11 +4,11 @@ SANITIZERS = -fsanitize=address -fsanitize=undefined
 
 all: test
 
-ht.o: ht.c ht.h
-	$(CC) $(CFLAGS) -c ht.c -o ht.o
+rw_ht.o: rw_ht.c ht.h
+	$(CC) $(CFLAGS) -c rw_ht.c -o rw_ht.o
 
-test: test_hashtable.c ht.o
-	$(CC) $(CFLAGS) ht.o test_hashtable.c -o test_hashtable
+test: test_hashtable.c rw_ht.o
+	$(CC) $(CFLAGS) rw_ht.o test_hashtable.c -o test_hashtable
 	./test_hashtable
 
 valgrind: test_hashtable
