@@ -1,4 +1,11 @@
+#ifdef BASIC_HASHTABLE
 #include "ht.h"
+#elif defined(RWLOCK_HASHTABLE)
+#include "rw_ht.h"
+#elif defined(RCU_HASHTABLE)
+#include "rcu_ht.h"
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -656,44 +663,44 @@ int benchmark_cache_aware_vs_oblivious() {
 	return 1;
 }
 
-// // Main test runner
-// int main() {
-//     int passed = 0;
-//     int total = 0;
+// Main test runner
+int main() {
+    int passed = 0;
+    int total = 0;
     
-//     typedef int (*test_func_t)(void);
-//     test_func_t tests[] = {
-//         test_create_destroy,
-//         test_insert_lookup,
-//         test_update,
-//         test_delete,
-//         test_collisions,
-//         test_performance,
-// 		test_performance_comprehensive,
-//         test_memory,
-//         test_edge_cases,
-// 		test_hash_function_edge_cases,
-// 		test_memory_boundaries,
-// 		benchmark_memory_bandwidth,
-// 		benchmark_cache_effects,
-// 		benchmark_cache_aware_vs_oblivious,
-//         NULL
-//     };
+    typedef int (*test_func_t)(void);
+    test_func_t tests[] = {
+        test_create_destroy,
+        test_insert_lookup,
+        test_update,
+        test_delete,
+        test_collisions,
+        test_performance,
+		test_performance_comprehensive,
+        test_memory,
+        test_edge_cases,
+		test_hash_function_edge_cases,
+		test_memory_boundaries,
+		benchmark_memory_bandwidth,
+		benchmark_cache_effects,
+		benchmark_cache_aware_vs_oblivious,
+        NULL
+    };
     
-//     printf("========================================\n");
-//     printf("       Hash Table Test Suite\n");
-//     printf("========================================\n");
+    printf("========================================\n");
+    printf("       Hash Table Test Suite\n");
+    printf("========================================\n");
     
-//     for (int i = 0; tests[i] != NULL; i++) {
-//         total++;
-//         if (tests[i]()) {
-//             passed++;
-//         }
-//     }
+    for (int i = 0; tests[i] != NULL; i++) {
+        total++;
+        if (tests[i]()) {
+            passed++;
+        }
+    }
     
-//     printf("\n========================================\n");
-//     printf("Results: %d/%d tests passed\n", passed, total);
-//     printf("========================================\n");
+    printf("\n========================================\n");
+    printf("Results: %d/%d tests passed\n", passed, total);
+    printf("========================================\n");
     
-//     return (passed == total) ? 0 : 1;
-// }
+    return (passed == total) ? 0 : 1;
+}

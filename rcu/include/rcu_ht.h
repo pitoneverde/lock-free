@@ -5,13 +5,6 @@
 # include <pthread.h>
 # include <urcu.h>
 # include <urcu/rcuhlist.h>
-// // Linked-list
-// typedef struct ht_entry_s
-// {
-// 	int		key;
-// 	void	*value;
-// 	struct ht_entry_s	*next;
-// } ht_entry_t;
 
 // rcu-protected linked-list
 typedef struct rcu_ht_entry
@@ -35,25 +28,6 @@ typedef struct hashtable_s
 	hash_function hash_f;
 	free_function free_c;
 } hashtable_t;
-
-// // rwlock
-// typedef struct hashtable_s
-// {
-// 	ht_entry_t	*buckets;
-// 	pthread_rwlock_t *bucket_locks;
-// 	size_t	size;
-// 	size_t	mask;
-// 	hash_function hash_f;
-// } hashtable_t;
-
-// base
-// typedef struct hashtable_s
-// {
-// 	ht_entry_t	**buckets;
-// 	size_t	size;
-// 	size_t	mask;
-// 	hash_function hash_f;
-// } hashtable_t;
 
 hashtable_t	*ht_create(size_t size);
 void	ht_destroy(hashtable_t *ht);

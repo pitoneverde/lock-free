@@ -1,4 +1,8 @@
-#include "ht.h"
+#ifdef RWLOCK_HASHTABLE
+#include "rw_ht.h"
+#elif defined(RCU_HASHTABLE)
+#include "rcu_ht.h"
+#endif
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
@@ -133,10 +137,12 @@ void run_scaling_benchmark(int table_size, int key_range, int read_percent) {
 
 int main()
 {
+#ifdef RCU_HASHTABLE
     rcu_register_thread();
-
-	// test_rwlock_contention();
-	
+#endif
+#ifdef RWLOCK_HASHTABLE
+	test_rwlock_contention();
+#endif
 	// Test in-cache (1K keys) and out-of-cache (100K keys) scenarios
     size_t key_counts[] = {1000, 100000};
     int read_ratios[] = {50, 90, 95, 99};
@@ -146,7 +152,8 @@ int main()
             run_scaling_benchmark(4096, key_counts[k], read_ratios[r]);
         }
     }
-
+#ifdef RCU_HASHTABLE
     rcu_unregister_thread();
+#endif
 	return 0;
 }
