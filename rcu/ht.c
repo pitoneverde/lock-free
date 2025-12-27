@@ -16,7 +16,7 @@ hashtable_t	*ht_create(size_t size)
 	ht->buckets = calloc(actual_size, sizeof(ht_entry_t *));
 	if (!ht->buckets) return (free(ht), NULL);
 	ht->size = actual_size;
-	ht->mask = size - 1;
+	ht->mask = actual_size - 1;
 	ht->hash_f = &knuth_hash;
 	return ht;
 }

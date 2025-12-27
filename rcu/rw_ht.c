@@ -21,7 +21,7 @@ hashtable_t	*ht_create(size_t size)
 	for (size_t i = 0; i < actual_size; i++)
 		pthread_rwlock_init(&ht->bucket_locks[i], NULL);
 	ht->size = actual_size;
-	ht->mask = size - 1;
+	ht->mask = actual_size - 1;
 	ht->hash_f = &knuth_hash;
 	return ht;
 }

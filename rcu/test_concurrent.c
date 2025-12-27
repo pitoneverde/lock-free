@@ -133,7 +133,9 @@ void run_scaling_benchmark(int table_size, int key_range, int read_percent) {
 
 int main()
 {
-	test_rwlock_contention();
+    rcu_register_thread();
+
+	// test_rwlock_contention();
 	
 	// Test in-cache (1K keys) and out-of-cache (100K keys) scenarios
     size_t key_counts[] = {1000, 100000};
@@ -144,5 +146,7 @@ int main()
             run_scaling_benchmark(4096, key_counts[k], read_ratios[r]);
         }
     }
+
+    rcu_unregister_thread();
 	return 0;
 }
