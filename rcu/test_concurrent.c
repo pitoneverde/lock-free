@@ -3,11 +3,14 @@
 #elif defined(RCU_HASHTABLE)
 #include "rcu_ht.h"
 #endif
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
 #include <stdint.h>
 #include <time.h>
+#include <pthread.h>
+#include <unistd.h>
 
 #define CONTENTION_KEY 42
 

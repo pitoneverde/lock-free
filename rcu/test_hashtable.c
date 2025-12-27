@@ -12,7 +12,7 @@
 #include <assert.h>
 #include <time.h>
 #include <limits.h>
-
+#include <unistd.h>
 
 #define TEST_ASSERT(cond, msg) \
     do { \
