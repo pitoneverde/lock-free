@@ -33,7 +33,7 @@ t_stack_node *pop(LF_stack *stack)
 	t_stack_top current, next;
 	do {
 		current = atomic_load(&stack->top);
-		if (current.node == NULL) return NULL;
+		if (!current.node) return NULL;
 		next.node = current.node->next;
 		next.version = current.version + 1;
 	} while (!atomic_compare_exchange_strong(&stack->top, &current, next));

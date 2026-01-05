@@ -1,5 +1,5 @@
 CC=cc -std=c11
-CFLAGS=-O2 -mcx16 -Iinclude
+CFLAGS=-O2 -mcx16 -Iinclude -g
 LFLAGS=-latomic -lpthread
 
 BASE_SRC=atomic_stack.c
@@ -40,10 +40,10 @@ test: all
 
 valgrind: valgrind-base valgrind-hp-base
 
-valgrind-base:
+valgrind-base: $(NAME)
 	valgrind --leak-check=full --show-leak-kinds=all ./$(NAME)
 
-valgrind-hp:
+valgrind-hp: $(HP_NAME)
 	valgrind --leak-check=full --show-leak-kinds=all ./$(HP_NAME)
 
 clean:

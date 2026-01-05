@@ -14,6 +14,9 @@
 
 void *stress_test(void *arg)
 {
+#ifdef HP_STACK
+	hp_init_thread();
+#endif
 	LF_stack *stack = arg;
 
 	for (int i = 0; i < OPS_PER_THREAD; i++)
@@ -29,15 +32,24 @@ void *stress_test(void *arg)
 		if (popped)
 		{
 			assert(popped == node || popped->data != NULL);
+#ifdef BASE_STACK
 			free(popped->data);
 			free(popped);
+#endif
 		}
 	}
+
+#ifdef HP_STACK
+	hp_cleanup_thread();
+#endif
 	return NULL;
 }
 
 int main()
 {
+#ifdef HP_STACK
+	hp_init_thread();
+#endif
 	LF_stack stack;
 	atomic_store(&stack.top, ((t_stack_top){NULL, 0}));
 
@@ -58,5 +70,8 @@ int main()
 	assert(pop(&stack) == NULL);
 	printf("✓ Stress test PASSED - no crashes, no leaks\n");
 
+#ifdef HP_STACK
+	hp_cleanup_thread();
+#endif
 	return 0;
 }

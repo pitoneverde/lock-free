@@ -31,6 +31,10 @@ _Atomic int failed_pops = 0;
 
 // Thread function - no memory leaks
 void *test_mixed_operations(void *arg) {
+#ifdef HP_STACK
+	hp_init_thread();
+#endif
+
     thread_args *args = (thread_args *)arg;
     LF_stack *stack = args->stack;
     
@@ -53,8 +57,8 @@ void *test_mixed_operations(void *arg) {
             t_stack_node *node = pop(stack);
             if (node) {
                 // Clean up the node
-                if (node->data) free(node->data);
-                free(node);
+                // if (node->data) free(node->data);
+                // free(node);
                 
                 atomic_fetch_add(&successful_pops, 1);
                 args->pops++;
@@ -64,7 +68,9 @@ void *test_mixed_operations(void *arg) {
             atomic_fetch_add(&total_pops, 1);
         }
     }
-    
+#ifdef HP_STACK
+	hp_cleanup_thread();
+#endif
     return NULL;
 }
 
@@ -73,11 +79,16 @@ void drain_stack(LF_stack *stack) {
     t_stack_node *node;
     while ((node = pop(stack)) != NULL) {
         if (node->data) free(node->data);
+#ifdef BASE_STACK
         free(node);
+#endif
     }
 }
 
 int main() {
+#ifdef HP_STACK
+	hp_init_thread();
+#endif
     printf("=== Lock-Free Stack Concurrent Test ===\n");
     
     // Initialize stack
@@ -159,11 +170,15 @@ int main() {
     int freed_count = 0;
     t_stack_node *node;
     while ((node = pop(stack)) != NULL) {
+#ifdef BASE_STACK
         if (node->data) {
             freed_count++;
             free(node->data);
         }
         free(node);
+#elif defined(HP_STACK)
+        freed_count++;
+#endif
     }
     printf("Freed %d remaining nodes\n", freed_count);
     
@@ -174,5 +189,8 @@ int main() {
     printf("\nTo check for memory leaks:\n");
     printf("valgrind --leak-check=full ./atomic_stack\n");
     
+#ifdef HP_STACK
+	hp_cleanup_thread();
+#endif
     return 0;
 }

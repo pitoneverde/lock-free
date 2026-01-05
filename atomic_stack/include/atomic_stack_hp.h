@@ -40,7 +40,7 @@ t_stack_node *new_node(void *data);
 //========== Hazard Pointers API ===========
 
 #define MAX_THREADS 64
-#define HP_PER_THREAD 2			//current & next
+#define HP_PER_THREAD 2
 #define RETIRE_CAPACITY 100
 #define SCAN_THRESHOLD 50
 
@@ -50,8 +50,10 @@ typedef struct {
 
 // Per-thread data
 typedef struct hp_thread {
-    hp_slot_t slots[HP_PER_THREAD];
-    
+    // slot 0 for regular ops
+    // slot 1 for nested ops, peek, debug, recursive/reentrant calls --> bulletproofing (shouldn't happen)
+	hp_slot_t slots[HP_PER_THREAD];
+
     // Retire array (dynamic, grows as needed)
     void **retire_list;
     size_t retire_size;
@@ -59,7 +61,7 @@ typedef struct hp_thread {
 } hp_thread_t;
 
 // Global registry
-static hp_thread_t *hp_registry[MAX_THREADS];
+static hp_thread_t *hp_registry[MAX_THREADS] = {0};
 static _Atomic size_t hp_next_index = 0;
 
 // Fast path
