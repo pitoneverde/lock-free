@@ -1,4 +1,10 @@
-#include "atomic_stack.h"
+
+#ifdef BASE_STACK
+# include "atomic_stack.h"
+#elif defined(HP_STACK)
+# include "atomic_stack_hp.h"
+#endif
+
 #include <stdio.h>
 #include <pthread.h>
 #include <assert.h>

@@ -1,3 +1,5 @@
+// atomic stack with tagged pointers
+
 #define _POSIX_C_SOURCE 200809L // For clock_gettime
 
 #ifndef ATOMIC_STACK_H
