@@ -1,22 +1,5 @@
-/*
-abstract lock-free stack pattern
-push(node):
-	node.next = head
-	while !atomic_update(head, node.next, node):
-		node.next = head
-
-pop():
-	while true:
-		old_head = head
-		if old_head == null: return null
-		new_head = old_head.next
-		if atomic_update(head, old_head, new_head):
-			return old_head
-*/
-// start API
 #include "atomic_stack.h"
 
-// 
 void push(LF_stack* stack, t_stack_node *new_node)
 {
 	t_stack_top current, next;
@@ -47,4 +30,3 @@ t_stack_node *new_node(void *data)
 	node->data = data;
 	return node;
 }
-// end API
