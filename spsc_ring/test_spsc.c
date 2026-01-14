@@ -1,3 +1,5 @@
+// Mainly AI-generated, checked for correctness and integration
+
 #include "spsc_ring.h"
 #include <assert.h>
 #include <stdio.h>

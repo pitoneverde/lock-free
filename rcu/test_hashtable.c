@@ -1,3 +1,5 @@
+// Mainly AI-generated, checked for correctness and integration
+
 #ifdef BASIC_HASHTABLE
 #include "ht.h"
 #elif defined(RWLOCK_HASHTABLE)

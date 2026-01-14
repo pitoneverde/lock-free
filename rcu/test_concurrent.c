@@ -1,3 +1,5 @@
+// Mainly AI-generated, checked for correctness and integration
+
 #ifdef RWLOCK_HASHTABLE
 #include "rw_ht.h"
 #elif defined(RCU_HASHTABLE)

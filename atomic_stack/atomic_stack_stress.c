@@ -1,3 +1,4 @@
+// Mainly AI-generated, checked for correctness and integration
 
 #ifdef BASE_STACK
 # include "atomic_stack.h"
