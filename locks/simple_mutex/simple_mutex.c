@@ -5,6 +5,8 @@
 #include <linux/futex.h>
 #include <sys/syscall.h>
 #include <sys/time.h>
+#include <errno.h>
+#include <assert.h>
 
 static inline int futex(uint32_t *uaddr, int op, uint32_t val,
 	const struct timespec *timeout, uint32_t *uaddr2, uint32_t val3)
@@ -22,18 +24,30 @@ static inline int futex_wait(uint32_t *uaddr, int val)
 	return futex(uaddr, FUTEX_WAIT, val, NULL, NULL, 0);
 }
 
-// Assumes that mutex is malloc'ed
+// Assumes that mutex is already allocated (malloc or stack)
 int simple_mutex_init(simple_mutex_t *mutex)
 {
+	if (!mutex)
+		return -EINVAL;
 	atomic_init(&mutex->word, _UNLOCKED);
+	return 0;
 }
 
-// Nothing to do (maybe validate state = unlocked?)
+// Validate state and poison the state to catch use-after-free
 int simple_mutex_destroy(simple_mutex_t *mutex)
 {
-	(void)mutex;
+	if (!mutex)
+		return -EINVAL;
+	// Check if locked, following pthread style
+	uint32_t val = atomic_load_explicit(&mutex->word, memory_order_relaxed);
+	if (val != _UNLOCKED)
+		return -EBUSY;
+	// Poison the state
+	atomic_store_explicit(&mutex->word, 0xDEADBEEF, memory_order_relaxed);
+	return 0;
 }
 
+// return 0 on success, -1 on syscall failure (which sets errno)
 int simple_mutex_lock(simple_mutex_t *mutex)
 {
 	uint32_t val = _UNLOCKED;
@@ -42,7 +56,7 @@ int simple_mutex_lock(simple_mutex_t *mutex)
 		&mutex->word, val, _LOCKED,
 		memory_order_acquire, memory_order_relaxed))
 	{
-		return;	// lock acquired
+		return 0;	// lock acquired
 	}
 
 	// CAS failed, val now holds actual word value
@@ -57,7 +71,7 @@ int simple_mutex_lock(simple_mutex_t *mutex)
 				&mutex->word, val, _LOCKED,
 				memory_order_acquire, memory_order_relaxed))
 			{
-				return;	// lock acquired
+				return 0;	// lock acquired
 			}
 			continue; //actual lock state != unlocked
 		}
@@ -74,16 +88,49 @@ int simple_mutex_lock(simple_mutex_t *mutex)
 			else continue;
 		}
 		// Blocking wait. val can be either _LOCKED or _LOCKED_WAITERS
-		futex_wait(&mutex->word, val);
-		// Reload actual value after waiting (still hasn't got the lock!)
+		int rc = futex_wait(&mutex->word, val);
+		if (rc == -1)	// = wait failed
+		{
+			int err = errno;
+			switch (err)
+			{
+				// Expected in case of race condition before sleep (safeguard, must retry)
+				case EAGAIN:
+					val = atomic_load_explicit(&mutex->word, memory_order_relaxed);
+					continue;
+				// Signal handler interrupted the wait (retry, maybe later add retry limit for robustness)
+				case EINTR:
+					val = atomic_load_explicit(&mutex->word, memory_order_relaxed);
+					continue;
+				// Fatal error, like EINVAL, EACCESS...
+				default:
+					return -err;
+			}
+		}
+		// Probably woken with rc >= 0
+		// Reload actual value after waiting and retry (still hasn't got the lock!)
 		// Implicit acquire barrier since syscall = full fence
 		val = atomic_load_explicit(&mutex->word, memory_order_relaxed);
 	}
+	return 0; // unreachable
 	
 }
 
+// return 0 on success, -errno on syscall failure
 int simple_mutex_unlock(simple_mutex_t *mutex)
 {
-	// unlock
-	// check for waiters and call SYS_futex_wake(1)
+	// unlock with release to ensure visibility exiting critical section
+	uint32_t prev_val = atomic_exchange_explicit(
+		&mutex->word, _UNLOCKED,
+		memory_order_release
+	);
+	// syscall only if there's waiters (skip if low contention)
+	if (prev_val == _LOCKED_WAITERS)
+	{
+		int rc = futex_wake(&mutex->word, 1);
+		if (rc == -1)	// Catastrophic failure
+			return -errno;
+		assert_perror(rc > 0);
+	}
+	return 0;
 }
