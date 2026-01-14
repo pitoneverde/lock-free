@@ -4,7 +4,23 @@
 #include <unistd.h>
 #include <linux/futex.h>
 #include <sys/syscall.h>
-#include <pthread.h>
+#include <sys/time.h>
+
+static inline int futex(uint32_t *uaddr, int op, uint32_t val,
+	const struct timespec *timeout, uint32_t *uaddr2, uint32_t val3)
+{
+	return syscall(SYS_futex, uaddr, op, val, timeout, uaddr2, val3);
+}
+
+static inline int futex_wake(uint32_t *uaddr, int nr_wake)
+{
+	return futex(uaddr, FUTEX_WAKE, nr_wake, NULL, NULL, 0);
+}
+
+static inline int futex_wait(uint32_t *uaddr, int val)
+{
+	return futex(uaddr, FUTEX_WAIT, val, NULL, NULL, 0);
+}
 
 // assumes that mutex is malloc'ed
 int simple_mutex_init(simple_mutex_t *mutex)
