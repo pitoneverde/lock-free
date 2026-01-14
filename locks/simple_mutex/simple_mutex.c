@@ -22,13 +22,13 @@ static inline int futex_wait(uint32_t *uaddr, int val)
 	return futex(uaddr, FUTEX_WAIT, val, NULL, NULL, 0);
 }
 
-// assumes that mutex is malloc'ed
+// Assumes that mutex is malloc'ed
 int simple_mutex_init(simple_mutex_t *mutex)
 {
-	atomic_init(&mutex->word, 0);
+	atomic_init(&mutex->word, _UNLOCKED);
 }
 
-// nothing to do (maybe validate state = unlocked?)
+// Nothing to do (maybe validate state = unlocked?)
 int simple_mutex_destroy(simple_mutex_t *mutex)
 {
 	(void)mutex;
@@ -36,17 +36,50 @@ int simple_mutex_destroy(simple_mutex_t *mutex)
 
 int simple_mutex_lock(simple_mutex_t *mutex)
 {
-	// fast path --> not contended
+	uint32_t val = _UNLOCKED;
+	// Fast path --> not contended (single CAS)
 	if (atomic_compare_exchange_strong_explicit(
-		&mutex->word, _UNLOCKED, _LOCKED, 
+		&mutex->word, val, _LOCKED,
 		memory_order_acquire, memory_order_relaxed))
 	{
 		return;	// lock acquired
 	}
 
-	// slow path --> contended
-	// syscall(SYS_futex, FUTEX_WAIT)
-	// SYS_futex_wait
+	// CAS failed, val now holds actual word value
+	// Slow path --> contended
+	// Loop until lock acquired or can successfully sleep
+	while (1)
+	{
+		// Another thread could have already released the lock
+		if (val == _UNLOCKED)
+		{
+			if (atomic_compare_exchange_strong_explicit(
+				&mutex->word, val, _LOCKED,
+				memory_order_acquire, memory_order_relaxed))
+			{
+				return;	// lock acquired
+			}
+			continue; //actual lock state != unlocked
+		}
+		// Post that there's waiters
+		// Implicit release barrier in subsequent syscall
+		if (val == _LOCKED)
+		{
+			if (atomic_compare_exchange_strong_explicit(
+				&mutex->word, val, _LOCKED_WAITERS,
+				memory_order_relaxed, memory_order_relaxed))
+			{
+				// CAS succeded, val now holds old value (_LOCKED)
+			}
+			else continue;
+		}
+		// Blocking wait. val can be either _LOCKED or _LOCKED_WAITERS
+		futex_wait(&mutex->word, val);
+		// Reload actual value after waiting (still hasn't got the lock!)
+		// Implicit acquire barrier since syscall = full fence
+		val = atomic_load_explicit(&mutex->word, memory_order_relaxed);
+	}
+	
 }
 
 int simple_mutex_unlock(simple_mutex_t *mutex)
