@@ -3,17 +3,21 @@
 
 #include <stdalign.h>
 #include <stdint.h>
+#include <stdatomic.h>
 
 #define _UNLOCKED 0
 #define _LOCKED 1
 #define _HAS_WAITERS 2
 #define _LOCKED_WAITERS 3  // _LOCKED << 1
 
+#define IS_LOCKED(val) ((val) & _LOCKED)
+#define HAS_WAITERS(val) ((val) & _HAS_WAITERS)
+#define SET_WAITERS(val) ((val) | _HAS_WAITERS)
 /*
  * Important note: this is the base lock (TAS, test-and-set).
  * In production code it's terribly slow (it syscalls in non-zero contention).
  * 
- * Limitations: non-reentrant, no owner check. 
+ * Limitations: non-reentrant, no owner check, not fair. 
  * Calling unlock() from a thread that doesn't own the lock causes undefined behaviour,
  * including, but not limited to: data corruption, data races, deadlocks, checker errors.
  * Such behaviour is not a bug, it's a feature (and is a programmer skill issue).
@@ -34,6 +38,24 @@ int simple_mutex_destroy(simple_mutex_t *mutex);
 // Can deadlock if called twice on same mutex by same thread
 int simple_mutex_lock(simple_mutex_t *mutex);
 int simple_mutex_unlock(simple_mutex_t *mutex);
-
 // int simple_mutex_trylock(simple_mutex_t *mutex);
+
+// Test utils
+#define TEST_ASSERT(cond, msg) \
+    do { \
+        if (!(cond)) { \
+            fprintf(stderr, "FAIL: %s at %s:%d\n", msg, __FILE__, __LINE__); \
+            exit(1); \
+        } \
+    } while(0)
+
+#define TEST_PASS(name) printf("PASS: %s\n", name)
+
+typedef struct {
+    simple_mutex_t *mutex;
+    atomic_long *counter;
+    int iterations;
+    atomic_int *start_flag;
+} test_args_t;
+
 #endif

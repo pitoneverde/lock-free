@@ -1,4 +1,7 @@
-#define _GNU_SOURCE
+#ifndef _GNU_SOURCE
+# define _GNU_SOURCE
+#endif
+
 #include "simple_mutex.h"
 #include <stdatomic.h>
 #include <unistd.h>
@@ -38,8 +41,10 @@ int simple_mutex_destroy(simple_mutex_t *mutex)
 {
 	if (!mutex)
 		return -EINVAL;
-	// Check if locked, following pthread style
+	// Check if locked or invalid, following pthread style
 	uint32_t val = atomic_load_explicit(&mutex->word, memory_order_relaxed);
+	if (val == 0xDEADBEEF)
+		return -EINVAL;
 	if (val != _UNLOCKED)
 		return -EBUSY;
 	// Poison the state
@@ -50,10 +55,16 @@ int simple_mutex_destroy(simple_mutex_t *mutex)
 // return 0 on success, -1 on syscall failure (which sets errno)
 int simple_mutex_lock(simple_mutex_t *mutex)
 {
-	uint32_t val = _UNLOCKED;
+	if (!mutex)
+		return -EINVAL;
+	// Safety check --> don't try to lock destroyed mutex
+	uint32_t val = atomic_load_explicit(&mutex->word, memory_order_acquire);
+	if (val == 0xDEADBEEF)
+		return -EINVAL;
+	val = _UNLOCKED;
 	// Fast path --> not contended (single CAS)
 	if (atomic_compare_exchange_strong_explicit(
-		&mutex->word, val, _LOCKED,
+		&mutex->word, &val, _LOCKED,
 		memory_order_acquire, memory_order_relaxed))
 	{
 		return 0;	// lock acquired
@@ -68,7 +79,7 @@ int simple_mutex_lock(simple_mutex_t *mutex)
 		if (val == _UNLOCKED)
 		{
 			if (atomic_compare_exchange_strong_explicit(
-				&mutex->word, val, _LOCKED,
+				&mutex->word, &val, _LOCKED,
 				memory_order_acquire, memory_order_relaxed))
 			{
 				return 0;	// lock acquired
@@ -79,33 +90,35 @@ int simple_mutex_lock(simple_mutex_t *mutex)
 		// Implicit release barrier in subsequent syscall
 		if (val == _LOCKED)
 		{
+			// necessary because CAS modifies val with actual state on failure
+			uint32_t old_val = val;
 			if (atomic_compare_exchange_strong_explicit(
-				&mutex->word, val, _LOCKED_WAITERS,
+				&mutex->word, &old_val, _LOCKED_WAITERS,
 				memory_order_relaxed, memory_order_relaxed))
 			{
 				// CAS succeded, val now holds old value (_LOCKED)
+				val = _LOCKED_WAITERS;
 			}
-			else continue;
+			else
+			{
+				val = old_val;	// current
+				continue;
+			}
 		}
 		// Blocking wait. val can be either _LOCKED or _LOCKED_WAITERS
 		int rc = futex_wait(&mutex->word, val);
 		if (rc == -1)	// = wait failed
 		{
 			int err = errno;
-			switch (err)
+			// Expected in case of race condition before sleep (safeguard, must retry)
+			// Signal handler interrupted the wait (retry, maybe later add retry limit for robustness)
+			if (err == EAGAIN || err == EINTR)
 			{
-				// Expected in case of race condition before sleep (safeguard, must retry)
-				case EAGAIN:
-					val = atomic_load_explicit(&mutex->word, memory_order_relaxed);
-					continue;
-				// Signal handler interrupted the wait (retry, maybe later add retry limit for robustness)
-				case EINTR:
-					val = atomic_load_explicit(&mutex->word, memory_order_relaxed);
-					continue;
-				// Fatal error, like EINVAL, EACCESS...
-				default:
-					return -err;
+				val = atomic_load_explicit(&mutex->word, memory_order_relaxed);
+				continue;
 			}
+			// Fatal error, like EINVAL, EACCESS...
+			return -err;
 		}
 		// Probably woken with rc >= 0
 		// Reload actual value after waiting and retry (still hasn't got the lock!)
@@ -119,6 +132,12 @@ int simple_mutex_lock(simple_mutex_t *mutex)
 // return 0 on success, -errno on syscall failure
 int simple_mutex_unlock(simple_mutex_t *mutex)
 {
+	if (!mutex)
+		return -EINVAL;
+	// Safety check --> don't try to unlock destroyed mutex
+	uint32_t val = atomic_load_explicit(&mutex->word, memory_order_acquire);
+	if (val == 0xDEADBEEF)
+		return -EINVAL;
 	// unlock with release to ensure visibility exiting critical section
 	uint32_t prev_val = atomic_exchange_explicit(
 		&mutex->word, _UNLOCKED,
@@ -130,7 +149,7 @@ int simple_mutex_unlock(simple_mutex_t *mutex)
 		int rc = futex_wake(&mutex->word, 1);
 		if (rc == -1)	// Catastrophic failure
 			return -errno;
-		assert_perror(rc > 0);
+		// assert(rc == 0);
 	}
 	return 0;
 }
